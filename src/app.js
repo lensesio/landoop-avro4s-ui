@@ -1,103 +1,120 @@
 'use strict';
 
-var schemaRegistryUIApp = angular.module('schemaRegistryUIApp', [, 'ui.ace', 'angularSpinner', 'angularUtils.directives.dirPagination']);
+var avro4sUIApp = angular.module('avro4sUIApp', ['ui.ace', 'angularSpinner']);
 
-schemaRegistryUIApp.controller('MainCtrl', function($scope, $http, $q, $filter) {
+avro4sUIApp.controller('MainCtrl', function ($scope, $http, $q, $log) {
 
-    $scope.showSpinner = true;
-    $scope.compare = true;
-    $scope.tableViewOn = true;
-    $scope.config = {};
-    $scope.allSubjects = [];
-    $scope.allSubjectsDetails = [];
-    $scope.schemaRegistryURL = ENV.BASE_URL;
+    $scope.avroSource = Example.avroSrc;
+    $scope.jsonSource = Example.jsonSrc;
+    $scope.scalaSource = Example.scalaSrc;
 
-    //Get the top level config
-    $http.get(ENV.BASE_URL + 'config/').then(
-        function successCallback(response) { $scope.config = response.data; },
-        function errorCallback(response) { console.log("FAIL "+ response) });
+    $scope.isEditorAvro = true;
+    $scope.isEditorJSon = false;
+    $scope.isEditorScala = false;
 
-    //Get schema data
-    $http.get(ENV.BASE_URL + 'subjects/')
-      .then( //1. Get the subjects
-        function successCallback(response) { $scope.allSubjects = response.data; },
-        function errorCallback(response) { console.log("FAIL "+ response) })
-      .then( //2. Get the all subjects final versions
-        function successCallback() {
-          var urlCalls = [];
-          angular.forEach($scope.allSubjects, function(subject) {
-            urlCalls.push($http.get(ENV.BASE_URL + 'subjects/' + subject + '/versions/latest'));
-          });
-          $q.all(urlCalls).then(function(results) {
-            angular.forEach(results, function(result) {
-              //3. Add some extra values to help the UI
-              result.data.schemaObj = JSON.parse(result.data.schema);
-              result.data.schema = angular.toJson(result.data.schemaObj, true);
-              result.data.latestVersion = result.data.version;
-              result.data.selectedVersion = result.data.version;
-              result.data.selectedId = result.data.id;
+    $scope.isAvroResultDisplayed = false;
+    $scope.isScalaResultDisplayed = false;
+    $scope.avroResult = "";
+    $scope.scalaResult = "";
 
-              $http.get(ENV.BASE_URL + 'subjects/' + result.data.subject + '/versions/').then(
-                function successCallback(response) {
-                  result.data.allVersions = response.data;
-                  var a = [];
-                  angular.forEach(result.data.allVersions, function(version) {
-                    if(version != result.data.version) {
-                        a.push({version: version});
-                    }
-                  });
-                  result.data.prevVersions = a;
-                },
-                function errorCallback(response) { console.log("FAIL "+ response) });
+    $scope.loadAvroExample = function () {
+        $log.info("Displaying Avro example");
+        $scope.avroSource = Example.avroSrc;
+        $scope.isEditorAvro = true;
+        $scope.isEditorJSon = false;
+        $scope.isEditorScala = false;
+        $scope.isAvroResultDisplayed = false;
+        $scope.isScalaResultDisplayed = false;
+    };
 
-              $scope.allSubjectsDetails.push(result.data);
+    $scope.loadJsonExample = function () {
+        $log.info("Displaying JSon example");
+        $scope.jsonSource = Example.jsonSrc;
+        $scope.isEditorAvro = false;
+        $scope.isEditorJSon = true;
+        $scope.isEditorScala = false;
+        $scope.isAvroResultDisplayed = false;
+        $scope.isScalaResultDisplayed = false;
+        var millisecondsToWait = 50;
+        setTimeout(function () {
+            $scope.$apply();
+        }, millisecondsToWait);
+    };
+
+    $scope.loadScalaExample = function () {
+        $log.info("Displaying Scala example");
+        $scope.scalaSource = scalaSrc;
+        $scope.isEditorScala = true;
+        $scope.isEditorAvro = false;
+        $scope.isEditorJSon = false;
+        $scope.isAvroResultDisplayed = false;
+        $scope.isScalaResultDisplayed = false;
+        var millisecondsToWait = 50;
+        setTimeout(function () {
+            $scope.$apply();
+        }, millisecondsToWait);
+    };
+
+    $scope.avro4sConversion = function (apiData) {
+        $http.defaults.useXDomain = true;
+
+        var singleLineApiData = apiData.split("\n").join(" ");
+
+        var req = {
+            method: 'POST',
+            data: singleLineApiData,
+            crossDomain: true,
+            url: avro4sEndpoint,
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'}
+        };
+
+        $http(req)
+            .success(function (data) {
+                $log.info("Received a response with: " + data);
+                var results = data.split("###");
+                $log.info(results);
+                if (results[0] == "scala") {
+                    $log.info("It's Scala !! ");
+                    $log.info("It's Scala :" + results[1]);
+                    //alg0
+                    $scope.scalaResult = results[1];
+                    $scope.isAvroResultDisplayed = false;
+                    $scope.isScalaResultDisplayed = true;
+                } else if (results[0] == "avro") {
+                    $log.info("It's Avro !! ");
+                    $log.info("It's Avro :" + results[1]);
+                    //alg0
+                    $scope.avroResult = results[1];
+                    $scope.isAvroResultDisplayed = true;
+                    $scope.isScalaResultDisplayed = false;
+                } else {
+                    $log.info("It's : " + results[0]);
+                }
+            })
+            .error(function (data, status) {
+                $log.error("Bad data [" + data + "] status [" + status + "]");
             });
-            $scope.showSpinner = false;
-          });
-      });
+    };
 
-    //Show slected subject schema details
-    $scope.showSubjectDetails = function(subjectItem, selectedVersion) {
-      if(selectedVersion == subjectItem.latestVersion) {
-          subjectItem.selectedId = subjectItem.id;
-          subjectItem.selectedSchema = subjectItem.schema;
-          subjectItem.selectedSchemaObj = subjectItem.schemaObj;
-      } else {
-        var selectedVersionFromPrev = $filter('filter')(subjectItem.prevVersions, {version:selectedVersion})[0];
-        if (selectedVersionFromPrev.schema == undefined) {
-          $http.get(ENV.BASE_URL + 'subjects/' + subjectItem.subject + '/versions/' + selectedVersion)
-               .then(
-                 function successCallback(response) {
-                   //cache it
-                   selectedVersionFromPrev.schemaObj = JSON.parse(response.data.schema);
-                   selectedVersionFromPrev.schema = angular.toJson(selectedVersionFromPrev.schemaObj, true);
-                   selectedVersionFromPrev.id = response.data.id
-                   //and set it to selectedSchema
-                   subjectItem.selectedSchema = selectedVersionFromPrev.schema;
-                   subjectItem.selectedSchemaObj = selectedVersionFromPrev.schemaObj;
-                   subjectItem.selectedId = selectedVersionFromPrev.id;
-                 },
-                 function errorCallback(response) { console.log("FAIL "+ response) });
-        } else {
-          console.log("from cache");
-          subjectItem.selectedSchema = selectedVersionFromPrev.schema;
-          subjectItem.selectedSchemaObj = selectedVersionFromPrev.schemaObj;
-          subjectItem.selectedId = selectedVersionFromPrev.id;
-        }
-      }
+    $scope.avro2scala = function () {
+        $log.info("Performing an 'avro4s' transformation");
+        $scope.scalaResult = "// avro -> scala";
+        $scope.isAvroResultDisplayed = false;
+        $scope.isScalaResultDisplayed = true;
+    };
 
-      subjectItem.selectedVersion = selectedVersion;
-      $scope.selectedSubject = subjectItem;
-    }
+    $scope.scala2avro = function () {
+        $log.info("Performing an 'avro4s' transformation");
+        $scope.avroResult = "scala->avro";
+        $scope.isAvroResultDisplayed = true;
+        $scope.isScalaResultDisplayed = false;
+    };
 
-    $scope.changeView = function(item) {
-      $scope.tableViewOn = !$scope.tableViewOn;
-    }
-
-    $scope.conditionsForComparison = function() {
-      return
-      (($scope.selectedSubject.selectedVersion != $scope.selectedSubject.latestVersion) &&
-       !$scope.tableViewOn && $scope.compare );
-    }
+    $scope.json2avro = function () {
+        $log.info("Performing an 'avro4s' transformation");
+        $scope.avroResult = "json->avro";
+        $scope.isAvroResultDisplayed = true;
+        $scope.isScalaResultDisplayed = false;
+    };
 
 }); //end of controller

@@ -1,14 +1,14 @@
 {
-  "name": "schema-registry-ui",
+  "name": "landoop-avro4s-ui",
   "authors": [
-    "Christina Daskalaki <christina@landoop.com>",
     "Antonios Chalkiopoulos <antonios@landoop.com>",
+    "Christina Daskalaki <christina@landoop.com>",
     "Marios Andreopoulos <marios@landoop.com>"
   ],
-  "description": "A user interface for Confluent's Schema Registry",
+  "description": "A user interface for avro4s",
   "main": "",
   "license": "Apache-2.0",
-  "homepage": "http://schema-registry-ui.landoop.com",
+  "homepage": "http://avro4s-ui.landoop.com",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -20,7 +20,6 @@
     "angular": "~1.4.*",
     "angular-ui-ace": "bower",
     "bootstrap": "^3.3.6",
-    "angular-spinner": "^0.8.1",
-    "angularUtils-pagination": "angular-utils-pagination#^0.11.1"
+    "angular-spinner": "^0.8.1"
   }
 }
